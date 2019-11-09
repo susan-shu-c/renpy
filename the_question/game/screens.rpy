@@ -318,12 +318,14 @@ screen navigation():
 
         textbutton _("About") action ShowMenu("about")
 
-        if renpy.variant("pc"):
+        if renpy.variant("pc") or (renpy.variant("web") and not renpy.variant("mobile")):
 
             ## Help isn't necessary or relevant to mobile devices.
             textbutton _("Help") action ShowMenu("help")
 
-            ## The quit button is banned on iOS and unnecessary on Android.
+        if renpy.variant("pc"):
+
+            ## The quit button is banned on iOS and unnecessary on Android and Web.
             textbutton _("Quit") action Quit(confirm=not main_menu)
 
 
@@ -436,6 +438,7 @@ screen game_menu(title, scroll=None):
                         scrollbars "vertical"
                         mousewheel True
                         draggable True
+                        pagekeys True
 
                         side_yfill True
 
@@ -451,6 +454,7 @@ screen game_menu(title, scroll=None):
                         scrollbars "vertical"
                         mousewheel True
                         draggable True
+                        pagekeys True
 
                         side_yfill True
 
@@ -767,7 +771,7 @@ screen preferences():
             hbox:
                 box_wrap True
 
-                if renpy.variant("pc"):
+                if renpy.variant("pc") or renpy.variant("web"):
 
                     vbox:
                         style_prefix "radio"
@@ -797,8 +801,14 @@ screen preferences():
                     style_prefix "radio"
                     label _("Language")
 
-                    textbutton "English" text_font "DejaVuSans.ttf"action Language(None)
+                    textbutton "English" text_font "DejaVuSans.ttf" action Language(None)
+                    textbutton "Français" text_font "DejaVuSans.ttf" action Language("french")
                     textbutton "Русский" text_font "DejaVuSans.ttf" action Language("russian")
+                    textbutton "Bahasa Melayu" text_font "DejaVuSans.ttf" action Language("malay")
+                    textbutton "한국어" text_font "../../launcher/game/fonts/NanumGothic.ttf" action Language("korean")
+                    textbutton "简体中文" text_font "../../launcher/game/fonts/SourceHanSans-Light-Lite.ttf" action Language("simplified_chinese")
+                    textbutton "繁體中文" text_font "../../launcher/game/fonts/SourceHanSans-Light-Lite.ttf" action Language("traditional_chinese")
+                    textbutton "Español" text_font "DejaVuSans.ttf" action Language("spanish")
 
 #end language_picker
 
@@ -895,7 +905,7 @@ style radio_vbox:
 
 style radio_button:
     properties gui.button_properties("radio_button")
-    foreground "gui/button/check_[prefix_]foreground.png"
+    foreground "gui/button/radio_[prefix_]foreground.png"
 
 style radio_button_text:
     properties gui.button_text_properties("radio_button")
@@ -956,17 +966,21 @@ screen history():
 
                     label h.who:
                         style "history_name"
+                        substitute False
 
                         ## Take the color of the who text from the Character, if
                         ## set.
                         if "color" in h.who_args:
                             text_color h.who_args["color"]
 
-                text h.what
+                $ what = renpy.filter_text_tags(h.what, allow=gui.history_allow_tags)
+                text what:
+                    substitute False
 
         if not _history_list:
             label _("The dialogue history is empty.")
 
+define gui.history_allow_tags = set()
 
 style history_window is empty
 
@@ -1516,4 +1530,3 @@ style slider_pref_slider:
 style main_menu_vbox:
     variant "small"
     xsize 900
-

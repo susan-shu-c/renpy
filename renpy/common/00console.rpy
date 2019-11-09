@@ -118,12 +118,30 @@ init -1500 python:
     # be actually run.
     config.console_callback = None
 
+default persistent._console_short = True
+
 init -1500 python in _console:
     from store import config, persistent, NoRollback
     import sys
     import traceback
     import store
 
+    import repr as reprlib
+    aRepr = reprlib.Repr()
+    aRepr.maxtuple = 20
+    aRepr.maxlist = 20
+    aRepr.maxarray = 20
+    aRepr.maxdict = 10
+    aRepr.maxset = 20
+    aRepr.maxfrozenset = 20
+    aRepr.maxstring = 60
+    aRepr.maxother = 200
+
+    aRepr.repr_RevertableList = aRepr.repr_list
+    aRepr.repr_RevertableDict = aRepr.repr_dict
+    aRepr.repr_RevertableSet = aRepr.repr_set
+    aRepr.repr_defaultdict = aRepr.repr_dict
+    aRepr.repr_OrderedDict = aRepr.repr_dict
 
     # The list of traced expressions.
     class TracedExpressionsList(NoRollback, list):
@@ -352,7 +370,15 @@ init -1500 python in _console:
 
             old_entry = None
 
+            if persistent._console_short:
+                if len(stdio_lines) > 30:
+                    stdio_lines[:] = stdio_lines[:10] + [ (False, " ... ") ] + stdio_lines[-20:]
+
             for error, l in stdio_lines:
+                if persistent._console_short:
+                    if len(l) > 200:
+                        l = l[:100] + "..." + l[-100:]
+
                 if (old_entry is not None) and (error == old_entry.is_error):
                     old_entry.result += "\n" + l
                 else:
@@ -394,7 +420,7 @@ init -1500 python in _console:
                     l.advance()
 
                     # Command can be None, but that's okay, since the lookup will fail.
-                    command = l.name()
+                    command = l.word()
 
                     command_fn = config.console_commands.get(command, None)
 
@@ -424,7 +450,11 @@ init -1500 python in _console:
                     pass
                 else:
                     result = renpy.python.py_eval(code)
-                    he.result = repr(result)
+                    if persistent._console_short:
+                        he.result = aRepr.repr(result)
+                    else:
+                        he.result = repr(result)
+
                     he.update_lines()
                     return
 
@@ -469,7 +499,7 @@ init -1500 python in _console:
 
         if renpy.game.context().rollback:
             try:
-                renpy.rollback(checkpoints=0, force=True, greedy=False, label="_console")
+                renpy.rollback(checkpoints=0, force=True, greedy=False, current_label="_console")
             except renpy.game.CONTROL_EXCEPTIONS:
                 raise
             except:
@@ -576,7 +606,7 @@ init -1500 python in _console:
         :name: renpy.watch
         :doc: debug
 
-        This watches the given python expression, by displaying it in the
+        This watches the given Python expression, by displaying it in the
         upper-right corner of the screen.
         """
 
@@ -607,7 +637,7 @@ init -1500 python in _console:
         :name: renpy.unwatch
         :doc: debug
 
-        Stops watching the given python expression.
+        Stops watching the given Python expression.
         """
 
         block = [ ( "<console>", 1, expr, [ ]) ]
@@ -629,7 +659,7 @@ init -1500 python in _console:
         :name: renpy.unwatch
         :doc: debug
 
-        Stops watching all python expressions.
+        Stops watching all Python expressions.
         """
 
         unwatchall(None)
@@ -638,7 +668,10 @@ init -1500 python in _console:
 
     @command(_("jump <label>: jumps to label"))
     def jump(l):
-        label = l.name()
+        label = l.label_name()
+
+        if label is None:
+            raise Exception("Could not parse label. (Unqualified local labels are not allowed.)")
 
         if not console.can_renpy():
             raise Exception("Ren'Py script not enabled. Not jumping.")
@@ -648,6 +681,15 @@ init -1500 python in _console:
 
         renpy.pop_call()
         renpy.jump(label)
+
+    @command(_("short: Shorten the representation of objects on the console (default)."))
+    def short(l):
+        persistent._console_short = True
+
+
+    @command(_("long: Print the full representation of objects on the console."))
+    def long(l):
+        persistent._console_short = False
 
 
 screen _console:
@@ -726,7 +768,7 @@ screen _console:
                 else:
                     text "... " style "_console_prompt"
 
-                input default default style "_console_input_text" exclude ""
+                input default default style "_console_input_text" exclude "" copypaste True
 
 
     key "game_menu" action Jump("_console_return")

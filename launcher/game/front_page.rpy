@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -195,8 +195,8 @@ screen front_page_project:
                     textbutton _("game") action OpenDirectory("game")
                     textbutton _("base") action OpenDirectory(".")
                     textbutton _("images") action OpenDirectory("game/images")
+                    textbutton _("audio") action OpenDirectory("game/audio")
                     textbutton _("gui") action OpenDirectory("game/gui")
-                    # textbutton _("save") action None style "l_list"
 
             vbox:
                 if persistent.show_edit_funcs:
@@ -211,18 +211,14 @@ screen front_page_project:
                         textbutton "gui.rpy" action editor.Edit("game/gui.rpy", check=True)
                         textbutton "screens.rpy" action editor.Edit("game/screens.rpy", check=True)
 
-                        textbutton _("All script files") action editor.EditAll()
+                        if editor.CanEditProject():
+                            textbutton _("Open project") action editor.EditProject()
+                        else:
+                            textbutton _("All script files") action editor.EditAll()
 
         add SPACER
-        add SEPARATOR
-        add SPACER
 
-        frame style "l_indent":
-            has vbox
-
-            textbutton _("Navigate Script") text_size 30 action Jump("navigation")
-
-        add SPACER
+        label _("Actions") style "l_label_small"
 
         grid 2 1:
             xfill True
@@ -231,6 +227,7 @@ screen front_page_project:
             frame style "l_indent":
                 has vbox
 
+                textbutton _("Navigate Script") action Jump("navigation")
                 textbutton _("Check Script (Lint)") action Jump("lint")
 
                 if project.current.exists("game/gui.rpy"):
@@ -252,6 +249,7 @@ screen front_page_project:
 
                 textbutton _("Android") action Jump("android")
                 textbutton _("iOS") action Jump("ios")
+                textbutton _("Web") + " " + _("(Beta)") action Jump("web")
                 textbutton _("Generate Translations") action Jump("translate")
                 textbutton _("Extract Dialogue") action Jump("extract_dialogue")
 

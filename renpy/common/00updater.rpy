@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -216,7 +216,7 @@ init -1500 python in updater:
         # The update was cancelled.
         CANCELLED = "CANCELLED"
 
-        def __init__(self, url, base=None, force=False, public_key=None, simulate=None, add=[], restart=True, check_only=False):
+        def __init__(self, url, base=None, force=False, public_key=None, simulate=None, add=[], restart=True, check_only=False, confirm=True):
             """
             Takes the same arguments as update().
             """
@@ -263,6 +263,9 @@ init -1500 python in updater:
             # If true, we check for an update, and update persistent._update_version
             # as appropriate.
             self.check_only = check_only
+
+            # Do we prompt for confirmation?
+            self.confirm = confirm
 
             # The base path of the game that we're updating, and the path to the update
             # directory underneath it.
@@ -391,7 +394,7 @@ init -1500 python in updater:
                 renpy.restart_interaction()
                 return
 
-            if not self.add:
+            if self.confirm and (not self.add):
 
                 # Confirm with the user that the update is available.
                 with self.condition:
@@ -505,17 +508,20 @@ init -1500 python in updater:
                 return
 
             # Confirm with the user that the update is available.
-            with self.condition:
-                self.can_cancel = True
-                self.can_proceed = True
-                self.state = self.UPDATE_AVAILABLE
-                self.version = pretty_version
 
-                while True:
-                    if self.cancelled or self.proceeded:
-                        break
+            if self.confirm:
 
-                    self.condition.wait()
+                with self.condition:
+                    self.can_cancel = True
+                    self.can_proceed = True
+                    self.state = self.UPDATE_AVAILABLE
+                    self.version = pretty_version
+
+                    while True:
+                        if self.cancelled or self.proceeded:
+                            break
+
+                        self.condition.wait()
 
             self.can_proceed = False
 
@@ -654,7 +660,12 @@ init -1500 python in updater:
                     rv = os.path.join(self.app, "/".join(path[1:]))
                     return rv
 
-            return os.path.join(self.base, name)
+            rv = os.path.join(self.base, name)
+
+            if renpy.windows:
+                rv = "\\\\?\\" + rv.replace("/", "\\")
+
+            return rv
 
         def load_state(self):
             """
@@ -824,9 +835,9 @@ init -1500 python in updater:
                 info.gname = "renpy"
 
                 if xbit or directory:
-                    info.mode = 0777
+                    info.mode = 0o777
                 else:
-                    info.mode = 0666
+                    info.mode = 0o666
 
                 if info.isreg():
                     with open(path, "rb") as f:
@@ -1079,7 +1090,7 @@ init -1500 python in updater:
                         umask = os.umask(0)
                         os.umask(umask)
 
-                        os.chmod(new_path, 0777 & (~umask))
+                        os.chmod(new_path, 0o777 & (~umask))
                     except:
                         pass
 
@@ -1183,8 +1194,37 @@ init -1500 python in updater:
                 self.clean(i + ".update.new")
                 self.clean(i + ".zsync")
 
-    installed_packages_cache = None
+    installed_state_cache = None
 
+    def get_installed_state(base=None):
+        """
+        :undocumented:
+
+        Returns the state of the installed packages.
+
+        `base`
+            The base directory to update. Defaults to the current project's
+            base directory.
+        """
+
+        global installed_state_cache
+
+        if installed_state_cache is not None:
+            return installed_state_cache
+
+        if base is None:
+            base = config.basedir
+
+        fn = os.path.join(base, "update", "current.json")
+
+        if not os.path.exists(fn):
+            return None
+
+        with open(fn, "rb") as f:
+            state = json.load(f)
+
+        installed_state_cache = state
+        return state
 
     def get_installed_packages(base=None):
         """
@@ -1197,24 +1237,12 @@ init -1500 python in updater:
             base directory.
         """
 
-        global installed_packages_cache
+        state = get_installed_state(base)
 
-        if installed_packages_cache is not None:
-            return installed_packages_cache
-
-        if base is None:
-            base = config.basedir
-
-        fn = os.path.join(base, "update", "current.json")
-
-        if not os.path.exists(fn):
+        if state is None:
             return [ ]
 
-        with open(fn, "rb") as f:
-            state = json.load(f)
-
         rv = list(state.keys())
-        installed_packages_cache = rv
         return rv
 
 
@@ -1241,7 +1269,7 @@ init -1500 python in updater:
         return not not get_installed_packages(base)
 
 
-    def update(url, base=None, force=False, public_key=None, simulate=None, add=[], restart=True):
+    def update(url, base=None, force=False, public_key=None, simulate=None, add=[], restart=True, confirm=True):
         """
         :doc: updater
 
@@ -1277,12 +1305,16 @@ init -1500 python in updater:
 
         `restart`
             Restart the game after the update.
+
+        `confirm`
+            Should Ren'Py prompt the user to confirm the update? If False, the
+            update will proceed without confirmation.
         """
 
         global installed_packages_cache
         installed_packages_cache = None
 
-        u = Updater(url=url, base=base, force=force, public_key=public_key, simulate=simulate, add=add, restart=restart)
+        u = Updater(url=url, base=base, force=force, public_key=public_key, simulate=simulate, add=add, restart=restart, confirm=confirm)
         ui.timer(.1, repeat=True, action=renpy.restart_interaction)
         renpy.call_screen("updater", u=u)
 

@@ -35,26 +35,29 @@ Keyboard keysyms may be preceded by the following prefixes, separated by
 underscores:
 
 alt
-    Matches if the alt key is pressed. Keysyms without this prefix match
-    when the alt key is not pressed.
+    Matches if the Alt key is pressed. Keysyms without this prefix match
+    when the Alt key is not pressed.
 meta
-    Matches if the meta, command, or windows key is pressed. Keysyms without
+    Matches if the meta, Command, or Windows key is pressed. Keysyms without
     this prefix match when the meta key is not pressed.
 ctrl
-    Matches if the ctrl key is pressed. Keysyms without this prefix match
-    when the ctrl key is not pressed. (Ctrl is not very useful, as it
+    Matches if the Ctrl key is pressed. Keysyms without this prefix match
+    when the Ctrl key is not pressed. (Ctrl is not very useful, as it
     usually triggers skipping.)
 shift
-    Matches when the shift key is pressed.
+    Matches when the Shift key is pressed.
 noshift
-    Matches when the shift key is not pressed. A K\_ keysym ignores the state
-    of the shift key when matching.
+    Matches when the Shift key is not pressed.
 repeat
     Matches when the key is a repeat due to the key being held down. Keysyms
     without this prefix do not match repeats.
+keydown
+    Matches when the key is being pressed down (the default).
+keyup
+    Matches when the key is being released.
 
 For example, the keysym "shift_alt_K_F5" will match the F5 key being pressed
-while shift and alt are held down.
+while Shift and Alt are held down.
 
 
 To change a binding, update the appropriate list in :var:`config.keymap`. The
@@ -125,6 +128,8 @@ as of version 6.99 is as follows::
         input_delete = [ 'K_DELETE', 'repeat_K_DELETE' ],
         input_home = [ 'K_HOME' ],
         input_end = [ 'K_END' ],
+        input_copy = [ 'ctrl_K_INSERT', 'ctrl_K_c' ],
+        input_paste = [ 'shift_K_INSERT', 'ctrl_K_v' ],
 
         # Viewport.
         viewport_leftarrow = [ 'K_LEFT', 'repeat_K_LEFT' ],

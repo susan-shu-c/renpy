@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -23,12 +23,15 @@
 # information about the game that's used to reflect on the contents,
 # including how to navigate around the game.
 
+from __future__ import print_function, absolute_import
+
 import inspect
 import json
 import sys
 import os
 
 import renpy
+import renpy.six as six
 
 
 # A list of (name, filename, linenumber) tuples, for various types of
@@ -121,11 +124,11 @@ def dump(error):
     # Labels.
     label = location["label"] = { }
 
-    for name, n in renpy.game.script.namemap.iteritems():
+    for name, n in six.iteritems(renpy.game.script.namemap):
         filename = n.filename
         line = n.linenumber
 
-        if not isinstance(name, basestring):
+        if not isinstance(name, six.string_types):
             continue
 
         if not filter(name, filename):
@@ -172,10 +175,10 @@ def dump(error):
         """
 
         if inspect.isfunction(o):
-            return inspect.getfile(o), o.func_code.co_firstlineno
+            return inspect.getfile(o), o.__code__.co_firstlineno
 
         if inspect.ismethod(o):
-            return get_line(o.im_func)
+            return get_line(o.__func__)
 
         return None, None
 
@@ -242,7 +245,14 @@ def dump(error):
         pass
 
     if args.json_dump != "-":
-        with file(args.json_dump, "w") as f:
+        new = args.json_dump + ".new"
+
+        with open(new, "w") as f:
             json.dump(result, f)
+
+        if os.path.exists(args.json_dump):
+            os.unlink(args.json_dump)
+
+        os.rename(new, args.json_dump)
     else:
         json.dump(result, sys.stdout, indent=2)

@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -40,6 +40,7 @@ def get_null():
 
     if null is None:
         null = renpy.display.layout.Null()
+        renpy.display.motion.null = null
 
     return null
 
@@ -109,6 +110,7 @@ class TransformState(renpy.object.Object):
     xtile = 1
     ytile = 1
     last_angle = None
+    maxsize = None
 
     def __init__(self):
         self.alpha = 1
@@ -145,6 +147,7 @@ class TransformState(renpy.object.Object):
         self.corner1 = None
         self.corner2 = None
         self.size = None
+        self.maxsize = None
 
         self.delay = 0
 
@@ -189,6 +192,7 @@ class TransformState(renpy.object.Object):
         self.corner1 = ts.corner1
         self.corner2 = ts.corner2
         self.size = ts.size
+        self.maxsize = ts.maxsize
 
         self.xpan = ts.xpan
         self.ypan = ts.ypan
@@ -260,6 +264,7 @@ class TransformState(renpy.object.Object):
         diff2("corner1", newts.corner1, self.corner1)
         diff2("corner2", newts.corner2, self.corner2)
         diff2("size", newts.size, self.size)
+        diff2("maxsize", newts.maxsize, self.maxsize)
 
         diff4("xpos", newts.xpos, newts.inherited_xpos, self.xpos, self.inherited_xpos)
         diff4("xanchor", newts.xanchor, newts.inherited_xanchor, self.xanchor, self.inherited_xanchor)
@@ -472,6 +477,7 @@ class Transform(Container):
     corner1 = Proxy("corner1")
     corner2 = Proxy("corner2")
     size = Proxy("size")
+    maxsize = Proxy("maxsize")
 
     delay = Proxy("delay")
 
@@ -685,6 +691,9 @@ class Transform(Container):
             return
 
         self.state.take_state(t.state)
+
+        if isinstance(self.child, Transform) and isinstance(t.child, Transform):
+            self.child.take_state(t.child)
 
         if (self.child is None) and (t.child is not None):
             self.add(t.child)
@@ -973,6 +982,9 @@ class Transform(Container):
     _duplicatable = True
 
     def _duplicate(self, args):
+
+        if args and args.args:
+            args.extraneous()
 
         if not self._duplicatable:
             return self

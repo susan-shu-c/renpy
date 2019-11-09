@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -18,6 +18,12 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+from __future__ import print_function, absolute_import
+
+# Make six available to Ren'Py games.
+import renpy.six as six  # @UnusedImport
+unicode = six.text_type  # @ReservedAssignment
 
 python_list = _list = list
 python_dict = _dict = dict
@@ -44,6 +50,24 @@ from renpy.python import revertable_sorted as sorted  # @UnusedImport
 import renpy.ui as ui  # @UnusedImport
 import renpy.exports as renpy  # @Reimport @UnusedImport
 from renpy.translation import translate_string as __  # @UnusedImport
+
+from renpy.python import store_eval as eval
+
+from renpy.display.core import absolute
+
+_print = print
+
+
+def print(*args, **kwargs):
+    """
+    :undocumented:
+
+    This is a variant of the print function that forces a checkpoint
+    at the start of the next statement, so that it can't be rolled past.
+    """
+
+    renpy.game.context().force_checkpoint = True
+    _print(*args, **kwargs)
 
 
 def _(s):

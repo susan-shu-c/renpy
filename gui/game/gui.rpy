@@ -122,7 +122,7 @@ define gui.namebox_height = None
 define gui.namebox_borders = Borders(5, 5, 5, 5)
 
 ## If True, the background of the namebox will be tiled, if False, the background
-## if the namebox will be scaled.
+## of the namebox will be scaled.
 define gui.namebox_tile = False
 
 
@@ -212,6 +212,7 @@ define gui.choice_button_text_size = gui.text_size
 define gui.choice_button_text_xalign = 0.5
 define gui.choice_button_text_idle_color = "#cccccc"
 define gui.choice_button_text_hover_color = "#ffffff"
+define gui.choice_button_text_insensitive_color = "#444444"
 
 
 ## File Slot Buttons ###########################################################
@@ -227,6 +228,8 @@ define gui.slot_button_borders = Borders(gui.scale(10), gui.scale(10), gui.scale
 define gui.slot_button_text_size = gui.scale(14)
 define gui.slot_button_text_xalign = 0.5
 define gui.slot_button_text_idle_color = gui.idle_small_color
+define gui.slot_button_text_selected_idle_color = gui.selected_color
+define gui.slot_button_text_selected_hover_color = gui.hover_color
 
 ## The width and height of thumbnails used by the save slots.
 define config.thumbnail_width = gui.scale(256)

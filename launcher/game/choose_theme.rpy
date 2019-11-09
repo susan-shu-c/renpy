@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -504,7 +504,7 @@ label choose_theme_callable:
     call screen choose_theme
 
     python hide:
-        with interface.error_handling("changing the theme"):
+        with interface.error_handling(_("changing the theme")):
             switch_theme()
 
     return

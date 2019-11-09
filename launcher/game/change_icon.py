@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -241,7 +241,7 @@ class Packer(object):
 
 
 def load_icon(fn):
-    f = BinFile(file(fn, "rb").read())
+    f = BinFile(open(fn, "rb").read())
 
     f.seek(0)
     f.u16()
@@ -301,7 +301,7 @@ def change_icons(oldexe, icofn):
     physize = rsrc_section.SizeOfRawData
     virsize = rsrc_section.Misc_VirtualSize
 
-    f = file(oldexe, "rb")
+    f = open(oldexe, "rb")
     f.seek(base)
     data = f.read(physize)
     f.close()
@@ -317,7 +317,7 @@ def change_icons(oldexe, icofn):
 
     alignment = pe.OPTIONAL_HEADER.SectionAlignment
 
-    # print "Alignment is", alignment
+    # print("Alignment is", alignment)
 
     if len(rsrc) % alignment:
         pad = alignment - (len(rsrc) % alignment)
@@ -353,6 +353,6 @@ def change_icons(oldexe, icofn):
 
 if __name__ == "__main__":
 
-    f = file(sys.argv[3], "wb")
+    f = open(sys.argv[3], "wb")
     f.write(change_icons(sys.argv[1], sys.argv[2]))
     f.close()

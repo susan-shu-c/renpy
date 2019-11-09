@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -21,15 +21,17 @@
 
 # This file contains code for formatting tracebacks.
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import traceback
 import sys
 import cStringIO
 import platform
 import linecache
+import time
+import os
 
 import renpy
-import os
+import renpy.six as six
 
 FSENCODING = sys.getfilesystemencoding() or "utf-8"
 
@@ -44,8 +46,8 @@ def write_utf8_traceback_list(out, l):
     for filename, line, what, text in l:
 
         # Filename is either unicode or an fsecoded string.
-        if not isinstance(filename, unicode):
-            filename = unicode(filename, FSENCODING, "replace")
+        if not isinstance(filename, six.text_type):
+            filename = six.text_type(filename, FSENCODING, "replace")
 
         # Line is a number.
 
@@ -132,13 +134,13 @@ def open_error_file(fn, mode):
 
     try:
         new_fn = os.path.join(renpy.config.logdir, fn)
-        f = file(new_fn, mode)
+        f = open(new_fn, mode)
         return f, new_fn
     except:
         pass
 
     try:
-        f = file(fn, mode)
+        f = open(fn, mode)
         return f, fn
     except:
         pass
@@ -146,7 +148,7 @@ def open_error_file(fn, mode):
     import tempfile
 
     new_fn = os.path.join(tempfile.gettempdir(), "renpy-" + fn)
-    return file(new_fn, mode), new_fn
+    return open(new_fn, mode), new_fn
 
 
 def report_exception(e, editor=True):
@@ -168,7 +170,7 @@ def report_exception(e, editor=True):
 
     def safe_utf8(e):
         try:
-            m = unicode(e)
+            m = six.text_type(e)
         except:
             try:
                 if len(e.args) == 0:
@@ -183,7 +185,7 @@ def report_exception(e, editor=True):
                 except:
                     m = "<Could not encode exception.>"
 
-        if isinstance(m, unicode):
+        if isinstance(m, six.text_type):
             return m.encode("utf-8", "replace")
         else:
             return m
@@ -206,16 +208,20 @@ def report_exception(e, editor=True):
     print(safe_utf8(e), file=full)
 
     # Write to stdout/stderr.
-    sys.stdout.write("\n")
-    sys.stdout.write(full.getvalue())
-    sys.stdout.write("\n")
-    sys.stdout.write(simple.getvalue())
+    try:
+        sys.stdout.write("\n")
+        sys.stdout.write(full.getvalue())
+        sys.stdout.write("\n")
+        sys.stdout.write(simple.getvalue())
+    except:
+        pass
 
     print(file=full)
     try:
         print(platform.platform(), file=full)
         print(renpy.version, file=full)
         print(safe_utf8(renpy.config.name + " " + renpy.config.version), file=full)
+        print(time.ctime(), file=full)
     except:
         pass
 

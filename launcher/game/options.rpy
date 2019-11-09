@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -269,7 +269,24 @@ init python:
     build.classify_renpy("**/thumbs.db", None)
     build.classify_renpy("**/.*", None)
 
+    # Atom rules. These have to be very early, since Atom uses names like
+    # tmp for packages.
+    build.classify_renpy("atom/", "atom-all source_only")
+    build.classify_renpy("atom/Atom.edit.py", "atom-all source_only")
+    build.classify_renpy("atom/default-dot-atom/**", "atom-all")
+    build.classify_renpy("atom/atom-windows/**", "atom-windows")
+    build.classify_renpy("atom/Atom.app/**", "atom-mac")
+    build.classify_renpy("atom/atom-linux**", "atom-linux")
+
+    try:
+        with open(os.path.join(config.renpy_base, "atom", "executable.txt")) as f:
+            for l in f:
+                build.executable(l.strip())
+    except:
+        pass
+
     build.classify_renpy("rapt/**", "rapt")
+    build.executable("rapt/prototype/gradlew")
 
     build.classify_renpy("renios/prototype/base/", None)
     build.classify_renpy("renios/prototype/prototype.xcodeproj/*.xcworkspace/", None)
@@ -279,6 +296,9 @@ init python:
     build.classify_renpy("renios/ios.py", "renios")
     build.classify_renpy("renios/version.txt", "renios")
     build.classify_renpy("renios/", "renios")
+
+    build.classify_renpy("web/game.zip", None)
+    build.classify_renpy("web/**", "web")
 
     build.classify_renpy("**.old", None)
     build.classify_renpy("**.new", None)
@@ -291,6 +311,7 @@ init python:
     build.classify_renpy("**/saves/", None)
     build.classify_renpy("**/tmp/", None)
     build.classify_renpy("**/.Editra", None)
+
 
     # main source.
 
@@ -316,12 +337,10 @@ init python:
     build.classify_renpy("gui/game/gui/", None)
 
     source_and_binary("launcher")
-    source_and_binary("templates", binary=None)
     source_and_binary("gui", binary=None)
 
     source_and_binary("the_question")
     source_and_binary("tutorial")
-    source_and_binary("oldtutorial")
 
     # docs.
     build.classify_renpy("doc/", "source")
@@ -351,6 +370,7 @@ init python:
     build.classify_renpy("module/pysdlsound/", "source")
     build.classify_renpy("module/pysdlsound/*.py", "source")
     build.classify_renpy("module/pysdlsound/*.pyx", "source")
+    build.classify_renpy("module/fribidi-src/**", "source")
 
     # all-platforms binary.
     build.classify_renpy("lib/**/_renpysteam*", None)
@@ -373,10 +393,8 @@ init python:
     build.classify_renpy("editra/Editra-mac.app/**", "editra-mac")
     build.classify_renpy("editra/lib/**", "editra-windows")
     build.classify_renpy("editra/editra.exe", "editra-windows")
-
-
-    # Executable rules.
     build.executable("editra/Editra/Editra")
+
 
     # Packages.
     build.packages = [ ]
@@ -386,12 +404,22 @@ init python:
     build.package("raspi", "tar.bz2", "raspi", dlc=True, update=False)
 
     build.package("jedit", "zip", "jedit", dlc=True)
+
     build.package("editra-linux", "tar.bz2", "editra-all editra-linux", dlc=True)
     build.package("editra-mac", "zip", "editra-all editra-mac", dlc=True)
     build.package("editra-windows", "zip", "editra-all editra-windows", dlc=True)
+
+    build.package("atom-linux", "tar.bz2", "atom-all atom-linux", dlc=True)
+    build.package("atom-mac", "zip", "atom-all atom-mac", dlc=True)
+    build.package("atom-windows", "zip", "atom-all atom-windows", dlc=True)
+
     build.package("rapt", "zip", "rapt", dlc=True)
     build.package("renios", "zip", "renios", dlc=True)
+    build.package("web", "zip", "web", dlc=True)
 
 
 # Enable the special launcher translation mode.
 define config.translate_launcher = True
+
+# Reduce the rate of screen updates.
+default preferences.gl_powersave = True

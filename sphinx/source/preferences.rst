@@ -26,6 +26,11 @@ can then change it again.)
     a click will end auto-forward mode. The equivalent of the
     "auto-forward after click" preference.
 
+.. var:: preferences.afm_enable = False
+
+    If True, auto-forward move is enabled, otherwise False. The equivalent
+    of the "auto-forward" preference.
+
 .. var:: preferences.afm_time = 15
 
     The amount of time to wait for auto-forward mode. Bigger numbers are
@@ -40,11 +45,11 @@ can then change it again.)
     the equivalend of the "rollback side" preference when on a desktop
     platform.
 
-.. var:: preferences.desktop_rollback_side = "disable"
+.. var:: preferences.mobile_rollback_side = "disable"
 
-    When on a desktop platform, touches or clicks to this side of the window
+    When on a mobile platform, touches or clicks to this side of the window
     cause rollback to occur. One of "left", "right", or "disable". This is
-    the equivalend of the "rollback side" preference when on a desktop
+    the equivalend of the "rollback side" preference when on a mobile
     platform.
 
 .. var:: preferences.emphasize_audio = False
@@ -98,8 +103,9 @@ can then change it again.)
 
 .. var:: preferences.skip_unseen = False
 
-    When True, Ren'Py will only skip unseen text. When False, Ren'Py will
-    skip all text. The equivalent of the "skip" preference.
+    When True, Ren'Py will skip all text. When False, Ren'Py will
+    only skip text that has been read by the player in any session.
+    The equivalent of the "skip" preference.
 
 .. var:: preferences.text_cps = 0
 

@@ -55,6 +55,13 @@ import math
 import exceptions
 import string
 import array
+from renpy import six
+
+
+# Since the long type doesn't exist on py3, define it here
+if six.PY3:
+    long = int
+
 
 sha1, sha256, sha512, md5 = None, None, None, None
 
@@ -85,8 +92,8 @@ IMAGE_OS2_SIGNATURE_LE          = 0x454C
 IMAGE_VXD_SIGNATURE             = 0x454C
 IMAGE_NT_SIGNATURE              = 0x00004550
 IMAGE_NUMBEROF_DIRECTORY_ENTRIES= 16
-IMAGE_ORDINAL_FLAG              = 0x80000000L
-IMAGE_ORDINAL_FLAG64            = 0x8000000000000000L
+IMAGE_ORDINAL_FLAG              = 0x80000000
+IMAGE_ORDINAL_FLAG64            = long(0x8000000000000000)
 OPTIONAL_HEADER_MAGIC_PE        = 0x10b
 OPTIONAL_HEADER_MAGIC_PE_PLUS   = 0x20b
 
@@ -169,7 +176,7 @@ section_characteristics = [
     ('IMAGE_SCN_MEM_SHARED',                0x10000000),
     ('IMAGE_SCN_MEM_EXECUTE',               0x20000000),
     ('IMAGE_SCN_MEM_READ',                  0x40000000),
-    ('IMAGE_SCN_MEM_WRITE',                 0x80000000L) ]
+    ('IMAGE_SCN_MEM_WRITE',                 0x80000000) ]
 
 SECTION_CHARACTERISTICS = dict([(e[1], e[0]) for e in
     section_characteristics]+section_characteristics)
@@ -576,7 +583,7 @@ class UnicodeStringWrapperPostProcessor:
 
         try:
             data = self.pe.get_data(self.rva_ptr, 2)
-        except PEFormatError, e:
+        except PEFormatError as e:
             return False
 
         if len(data)<2:
@@ -816,12 +823,12 @@ class Structure:
             for key in keys:
 
                 val = getattr(self, key)
-                if isinstance(val, int) or isinstance(val, long):
+                if isinstance(val, six.integer_types):
                     val_str = '0x%-8X' % (val)
                     if key == 'TimeDateStamp' or key == 'dwTimeStamp':
                         try:
                             val_str += ' [%s UTC]' % time.asctime(time.gmtime(val))
-                        except exceptions.ValueError, e:
+                        except exceptions.ValueError as e:
                             val_str += ' [INVALID TIME]'
                 else:
                     val_str = ''.join(filter(lambda c:c != '\0', str(val)))
@@ -890,7 +897,7 @@ class SectionStructure(Structure):
         return self.VirtualAddress <= rva < self.VirtualAddress + size
 
     def contains(self, rva):
-        #print "DEPRECATION WARNING: you should use contains_rva() instead of contains()"
+        #print("DEPRECATION WARNING: you should use contains_rva() instead of contains()")
         return self.contains_rva(rva)
 
 
@@ -1373,7 +1380,7 @@ class PE:
 
         try:
             structure.__unpack__(data)
-        except PEFormatError, err:
+        except PEFormatError as err:
             self.__warnings.append(
                 'Corrupt header "%s" at file offset %d. Exception: %s' % (
                     format[0], file_offset, str(err))  )
@@ -1392,7 +1399,7 @@ class PE:
         """
 
         if fname:
-            fd = file(fname, 'rb')
+            fd = open(fname, 'rb')
             self.__data__ = fd.read()
             fd.close()
         elif data:
@@ -1557,7 +1564,7 @@ class PE:
                 'Normal values are never larger than 0x10, the value is: 0x%x' %
                 self.OPTIONAL_HEADER.NumberOfRvaAndSizes )
 
-        for i in xrange(int(0x7fffffffL & self.OPTIONAL_HEADER.NumberOfRvaAndSizes)):
+        for i in xrange(int(0x7fffffff & self.OPTIONAL_HEADER.NumberOfRvaAndSizes)):
 
             if len(self.__data__[offset:]) == 0:
                 break
@@ -1745,7 +1752,7 @@ class PE:
         new_file_data = ''.join( [ chr(ord(c)) for c in file_data] )
 
         if filename:
-            f = file(filename, 'wb+')
+            f = open(filename, 'wb+')
             f.write(new_file_data)
             f.close()
         else:
@@ -2115,7 +2122,7 @@ class PE:
         for idx in xrange(size/dbg_size):
             try:
                 data = self.get_data(rva+dbg_size*idx, dbg_size)
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Invalid debug information. Can\'t read ' +
                     'data at RVA: 0x%x' % rva)
@@ -2169,7 +2176,7 @@ class PE:
             # If the RVA is invalid all would blow up. Some EXEs seem to be
             # specially nasty and have an invalid RVA.
             data = self.get_data(rva, Structure(self.__IMAGE_RESOURCE_DIRECTORY_format__).sizeof() )
-        except PEFormatError, e:
+        except PEFormatError as e:
             self.__warnings.append(
                 'Invalid resources directory. Can\'t read ' +
                 'directory data at RVA: 0x%x' % rva)
@@ -2229,7 +2236,7 @@ class PE:
                     entry_name = UnicodeStringWrapperPostProcessor(self, ustr_offset)
                     strings_to_postprocess.append(entry_name)
 
-                except PEFormatError, excp:
+                except PEFormatError as excp:
                     self.__warnings.append(
                         'Error parsing the resources directory, ' +
                         'attempting to read entry name. ' +
@@ -2330,7 +2337,7 @@ class PE:
             # If the RVA is invalid all would blow up. Some EXEs seem to be
             # specially nasty and have an invalid RVA.
             data = self.get_data(rva, Structure(self.__IMAGE_RESOURCE_DATA_ENTRY_format__).sizeof() )
-        except PEFormatError, excp:
+        except PEFormatError as excp:
             self.__warnings.append(
                 'Error parsing a resource directory data entry, ' +
                 'the RVA is invalid: 0x%x' % ( rva ) )
@@ -2355,13 +2362,13 @@ class PE:
             return None
 
         #resource.NameIsString = (resource.Name & 0x80000000L) >> 31
-        resource.NameOffset = resource.Name & 0x7FFFFFFFL
+        resource.NameOffset = resource.Name & 0x7FFFFFFF
 
-        resource.__pad = resource.Name & 0xFFFF0000L
-        resource.Id = resource.Name & 0x0000FFFFL
+        resource.__pad = resource.Name & 0xFFFF0000
+        resource.Id = resource.Name & 0x0000FFFF
 
-        resource.DataIsDirectory = (resource.OffsetToData & 0x80000000L) >> 31
-        resource.OffsetToDirectory = resource.OffsetToData & 0x7FFFFFFFL
+        resource.DataIsDirectory = (resource.OffsetToData & 0x80000000) >> 31
+        resource.OffsetToDirectory = resource.OffsetToData & 0x7FFFFFFF
 
         return resource
 
@@ -2409,7 +2416,7 @@ class PE:
         ustr_offset = version_struct.OffsetToData + versioninfo_struct.sizeof()
         try:
             versioninfo_string = self.get_string_u_at_rva( ustr_offset )
-        except PEFormatError, excp:
+        except PEFormatError as excp:
             self.__warnings.append(
                 'Error parsing the version information, ' +
                 'attempting to read VS_VERSION_INFO string. Can\'t ' +
@@ -2489,7 +2496,7 @@ class PE:
                 stringfileinfo_offset + versioninfo_struct.sizeof() )
             try:
                 stringfileinfo_string = self.get_string_u_at_rva( ustr_offset )
-            except PEFormatError, excp:
+            except PEFormatError as excp:
                 self.__warnings.append(
                     'Error parsing the version information, ' +
                     'attempting to read StringFileInfo string. Can\'t ' +
@@ -2535,7 +2542,7 @@ class PE:
                             stringtable_struct.sizeof() )
                         try:
                             stringtable_string = self.get_string_u_at_rva( ustr_offset )
-                        except PEFormatError, excp:
+                        except PEFormatError as excp:
                             self.__warnings.append(
                                 'Error parsing the version information, ' +
                                 'attempting to read StringTable string. Can\'t ' +
@@ -2570,7 +2577,7 @@ class PE:
                             try:
                                 key = self.get_string_u_at_rva( ustr_offset )
                                 key_offset = self.get_offset_from_rva( ustr_offset )
-                            except PEFormatError, excp:
+                            except PEFormatError as excp:
                                 self.__warnings.append(
                                     'Error parsing the version information, ' +
                                     'attempting to read StringTable Key string. Can\'t ' +
@@ -2586,7 +2593,7 @@ class PE:
                                 value = self.get_string_u_at_rva( ustr_offset,
                                     max_length = string_struct.ValueLength )
                                 value_offset = self.get_offset_from_rva( ustr_offset )
-                            except PEFormatError, excp:
+                            except PEFormatError as excp:
                                 self.__warnings.append(
                                     'Error parsing the version information, ' +
                                     'attempting to read StringTable Value string. ' +
@@ -2661,7 +2668,7 @@ class PE:
                             var_struct.sizeof() )
                         try:
                             var_string = self.get_string_u_at_rva( ustr_offset )
-                        except PEFormatError, excp:
+                        except PEFormatError as excp:
                             self.__warnings.append(
                                 'Error parsing the version information, ' +
                                 'attempting to read VarFileInfo Var string. ' +
@@ -2683,7 +2690,7 @@ class PE:
                                 raw_data[varword_offset+2:varword_offset+4], 0)
                             varword_offset += 4
 
-                            if isinstance(word1, (int, long)) and isinstance(word1, (int, long)):
+                            if isinstance(word1, six.integer_types):
                                 var_struct.entry = {var_string: '0x%04x 0x%04x' % (word1, word2)}
 
                         var_offset = self.dword_align(
@@ -2830,7 +2837,7 @@ class PE:
                 # If the RVA is invalid all would blow up. Some PEs seem to be
                 # specially nasty and have an invalid RVA.
                 data = self.get_data( rva, Structure(self.__IMAGE_DELAY_IMPORT_DESCRIPTOR_format__).sizeof() )
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the Delay import directory at RVA: 0x%x' % ( rva ) )
                 break
@@ -2852,7 +2859,7 @@ class PE:
                     import_desc.pINT,
                     import_desc.pIAT,
                     None)
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the Delay import directory. ' +
                     'Invalid import data at RVA: 0x%x' % ( rva ) )
@@ -2883,7 +2890,7 @@ class PE:
                 # If the RVA is invalid all would blow up. Some EXEs seem to be
                 # specially nasty and have an invalid RVA.
                 data = self.get_data(rva, Structure(self.__IMAGE_IMPORT_DESCRIPTOR_format__).sizeof() )
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the Import directory at RVA: 0x%x' % ( rva ) )
                 break
@@ -2903,7 +2910,7 @@ class PE:
                     import_desc.OriginalFirstThunk,
                     import_desc.FirstThunk,
                     import_desc.ForwarderChain)
-            except PEFormatError, excp:
+            except PEFormatError as excp:
                 self.__warnings.append(
                     'Error parsing the Import directory. ' +
                     'Invalid Import data at RVA: 0x%x' % ( rva ) )
@@ -2936,7 +2943,7 @@ class PE:
         imported_symbols = []
         imports_section = self.get_section_by_rva(first_thunk)
         if not imports_section:
-            raise PEFormatError, 'Invalid/corrupt imports.'
+            raise PEFormatError('Invalid/corrupt imports.')
 
 
         # Import Lookup Table. Contains ordinals or pointers to strings.
@@ -2991,7 +2998,7 @@ class PE:
                         # Get the Hint
                         imp_hint = self.get_word_from_data(data, 0)
                         imp_name = self.get_string_at_rva(table[idx].AddressOfData+2)
-                    except PEFormatError, e:
+                    except PEFormatError as e:
                         pass
 
             imp_address = first_thunk+self.OPTIONAL_HEADER.ImageBase+idx*4
@@ -3032,7 +3039,7 @@ class PE:
 
             try:
                 data = self.get_data( rva, Structure(format).sizeof() )
-            except PEFormatError, e:
+            except PEFormatError as e:
                 self.__warnings.append(
                     'Error parsing the import table. ' +
                     'Invalid data at RVA: 0x%x' % ( rva ) )
@@ -3137,7 +3144,7 @@ class PE:
                     end = None
                 return self.header[rva:end]
 
-            raise PEFormatError, 'data at RVA can\'t be fetched. Corrupt header?'
+            raise PEFormatError('data at RVA can\'t be fetched. Corrupt header?')
 
         return s.get_data(rva, length)
 
@@ -3160,7 +3167,7 @@ class PE:
         s = self.get_section_by_rva(rva)
         if not s:
 
-            raise PEFormatError, 'data at RVA can\'t be fetched. Corrupt header?'
+            raise PEFormatError('data at RVA can\'t be fetched. Corrupt header?')
 
         return s.get_offset_from_rva(rva)
 
@@ -3207,7 +3214,7 @@ class PE:
             # If the RVA is invalid all would blow up. Some EXEs seem to be
             # specially nasty and have an invalid RVA.
             self.get_data(rva, 2)
-        except PEFormatError, e:
+        except PEFormatError as e:
             return None
 
         #length = struct.unpack('<H', data)[0]
@@ -3744,7 +3751,7 @@ class PE:
 
         offset = self.get_physical_by_rva(rva)
         if not offset:
-            raise False
+            return False
 
         return self.set_bytes_at_offset(offset, data)
 

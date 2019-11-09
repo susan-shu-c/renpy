@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -21,14 +21,33 @@
 
 # Functions that make the user's life easier.
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import renpy.display
 import renpy.styledata
 import contextlib
 import time
+import renpy.six as six
 
 Color = renpy.color.Color
 color = renpy.color.Color
+
+
+def lookup_displayable_prefix(d):
+    """
+    Given `d`, a string given a displayable, returns the displayale it
+    corresponds to or None if it it does not correspond to one.
+    """
+
+    prefix, colon, arg = d.partition(":")
+
+    if not colon:
+        return None
+
+    fn = renpy.config.displayable_prefix.get(prefix, None)
+    if fn is None:
+        return None
+
+    return displayable(fn(arg))
 
 
 def displayable_or_none(d, scope=None, dynamic=True):
@@ -39,11 +58,16 @@ def displayable_or_none(d, scope=None, dynamic=True):
     if d is None:
         return d
 
-    if isinstance(d, basestring):
+    if isinstance(d, six.string_types):
         if not d:
             raise Exception("An empty string cannot be used as a displayable.")
         elif ("[" in d) and renpy.config.dynamic_images and dynamic:
             return renpy.display.image.DynamicImage(d, scope=scope)
+
+        rv = lookup_displayable_prefix(d)
+
+        if rv is not None:
+            return rv
         elif d[0] == '#':
             return renpy.store.Solid(d)
         elif "." in d:
@@ -80,11 +104,16 @@ def displayable(d, scope=None):
     if isinstance(d, renpy.display.core.Displayable):
         return d
 
-    if isinstance(d, basestring):
+    if isinstance(d, six.string_types):
         if not d:
             raise Exception("An empty string cannot be used as a displayable.")
         elif ("[" in d) and renpy.config.dynamic_images:
             return renpy.display.image.DynamicImage(d, scope=scope)
+
+        rv = lookup_displayable_prefix(d)
+
+        if rv is not None:
+            return rv
         elif d[0] == '#':
             return renpy.store.Solid(d)
         elif "." in d:
@@ -127,13 +156,16 @@ def dynamic_image(d, scope=None, prefix=None, search=None):
         if renpy.exports.image_exists(name):
             return True
 
+        if lookup_displayable_prefix(name):
+            return True
+
         if (len(d) == 1) and (renpy.config.missing_image_callback is not None):
             if renpy.config.missing_image_callback(name):
                 return True
 
     for i in d:
 
-        if not isinstance(i, basestring):
+        if not isinstance(i, six.string_types):
             continue
 
         if (prefix is not None) and ("[prefix_" in i):
@@ -203,7 +235,7 @@ def split_properties(properties, *prefixes):
     For example, this splits properties beginning with text from
     those that do not::
 
-        text_properties, button_properties = renpy.split_properties("text_", "")
+        text_properties, button_properties = renpy.split_properties(properties, "text_", "")
     """
 
     rv = [ ]
@@ -216,7 +248,7 @@ def split_properties(properties, *prefixes):
 
     prefix_d = list(zip(prefixes, rv))
 
-    for k, v in properties.iteritems():
+    for k, v in six.iteritems(properties):
         for prefix, d in prefix_d:
             if k.startswith(prefix):
                 d[k[len(prefix):]] = v

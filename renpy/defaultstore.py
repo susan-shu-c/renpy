@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -19,11 +19,14 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from __future__ import print_function, absolute_import
+
 from renpy.minstore import *
 
 # But please note that this will not be available in the body
 # of user code, unless we re-import it.
 import renpy.display
+import renpy.audio
 import renpy.text
 
 import renpy.display.im as im
@@ -44,6 +47,9 @@ _window_subtitle = ''
 
 # Should rollback be allowed?
 _rollback = True
+
+# Should beginning a new rollback be allowed?
+_begin_rollback = True
 
 # Should skipping be allowed?
 _skipping = True
@@ -121,7 +127,9 @@ eval = renpy.python.py_eval  # @ReservedAssignment
 # Displayables.
 Bar = renpy.display.behavior.Bar
 Button = renpy.display.behavior.Button
+ImageButton = renpy.display.behavior.ImageButton
 Input = renpy.display.behavior.Input
+TextButton = renpy.display.behavior.TextButton
 
 ImageReference = renpy.display.image.ImageReference
 DynamicImage = renpy.display.image.DynamicImage
@@ -136,6 +144,11 @@ FileCurrentScreenshot = renpy.display.imagelike.FileCurrentScreenshot
 LiveComposite = renpy.display.layout.LiveComposite
 LiveCrop = renpy.display.layout.LiveCrop
 LiveTile = renpy.display.layout.LiveTile
+
+Composite = renpy.display.layout.Composite
+Crop = renpy.display.layout.Crop
+Tile = renpy.display.layout.Tile
+
 Flatten = renpy.display.layout.Flatten
 
 Null = renpy.display.layout.Null
@@ -196,6 +209,7 @@ MultipleTransition = renpy.curry.curry(renpy.display.transition.MultipleTransiti
 ComposeTransition = renpy.curry.curry(renpy.display.transition.ComposeTransition)
 Pause = renpy.curry.curry(renpy.display.transition.NoTransition)
 SubTransition = renpy.curry.curry(renpy.display.transition.SubTransition)
+
 # Misc.
 ADVSpeaker = ADVCharacter = renpy.character.ADVCharacter
 Speaker = Character = renpy.character.Character
@@ -205,12 +219,12 @@ MultiPersistent = renpy.persistent.MultiPersistent
 Action = renpy.ui.Action
 BarValue = renpy.ui.BarValue
 
+AudioData = renpy.audio.audio.AudioData
+
 # NOTE: When exporting something from here, decide if we need to add it to
 # renpy.pyanalysis.pure_functions.
 
 Style = renpy.style.Style  # @UndefinedVariable
-
-absolute = renpy.display.core.absolute
 
 NoRollback = renpy.python.NoRollback
 
@@ -243,6 +257,7 @@ class _layout_class(__builtins__["object"]):
 
 
 Fixed = _layout_class(renpy.display.layout.MultiBox, """
+:name: Fixed
 :doc: disp_box
 :args: (*args, **properties)
 
@@ -267,6 +282,7 @@ A layout that lays out its members from top to bottom.
 
 Grid = _layout_class(renpy.display.layout.Grid, """
 :doc: disp_grid
+:args: (cols, rows, *args, **properties)
 
 Lays out displayables in a grid. The first two positional arguments
 are the number of columns and rows in the grid. This must be followed
@@ -420,6 +436,7 @@ _in_replay = None
 
 # Used to store the side image attributes.
 _side_image_attributes = None
+_side_image_attributes_reset = False
 
 # True if we're in the main_menu, False otherwise. This controls autosave,
 # among other things.
@@ -428,6 +445,9 @@ main_menu = False
 # The action that's used when the player clicks the ignore button on the
 # error handling screen.
 _ignore_action = None
+
+# The save slot that Ren'Py saves to on quit.
+_quit_slot = None
 
 # Make these available to user code.
 import sys

@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -33,6 +33,7 @@ import renpy.text.textsupport as textsupport
 # requires a closing tag.
 text_tags = dict(
     alpha=True,
+    art=True,
     image=False,
     p=False,
     w=False,
@@ -69,13 +70,15 @@ def check_text_tags(s):
     an error, or None if there is no error.
     """
 
-    custom_tags = renpy.config.custom_text_tags
+    all_tags = dict(text_tags)
 
+    custom_tags = renpy.config.custom_text_tags
     if custom_tags:
-        all_tags = dict(text_tags)
-        all_tags.update(renpy.config.custom_text_tags)
-    else:
-        all_tags = text_tags
+        all_tags.update(custom_tags)
+
+    self_closing_custom_tags = renpy.config.self_closing_custom_text_tags
+    if self_closing_custom_tags:
+        all_tags.update(dict.fromkeys(self_closing_custom_tags, False))
 
     try:
         tokens = textsupport.tokenize(unicode(s))
@@ -129,7 +132,7 @@ def filter_text_tags(s, allow=None, deny=None):
         A set of tags that are allowed. If a tag is not in this list, it is removed.
 
     `deny`
-        A set of tags that are denied. If a tage is not in this list, it is kept in the string.
+        A set of tags that are denied. If a tag is not in this list, it is kept in the string.
     """
 
     if (allow is None) and (deny is None):
@@ -166,6 +169,7 @@ def filter_text_tags(s, allow=None, deny=None):
 
 class ParameterizedText(object):
     """
+    :name: ParameterizedText
     :doc: text
 
     This is a displayable that can be shown with an additional string

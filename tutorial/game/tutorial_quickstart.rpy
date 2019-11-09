@@ -344,7 +344,7 @@ label tutorial_simple_positions:
 
     e "Usually transforms are defined at the top of a file, right after the characters. But it doesn't matter to Ren'Py where you define them."
 
-    e "The transform is given a name, sightleft, and then the xalign and yalign properties."
+    e "The transform is given a name, slightleft, and then the xalign and yalign properties."
 
     example:
         show eileen vhappy at slightleft
@@ -446,7 +446,7 @@ label tutorial_music:
 
     e "The sounds themselves are stored in audio files. Ren'Py supports the Opus, Ogg Vorbis, and mp3 formats."
 
-    e "Let's check out some of the commands that can effect the music channel."
+    e "Let's check out some of the commands that can affect the music channel."
 
     example:
         play music "sunflower-slow-drag.ogg" fadeout 1

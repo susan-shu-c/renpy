@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -95,6 +95,10 @@ init python in project:
             self.dump_mtime = 0
 
         def get_dump_filename(self):
+
+            if os.path.exists(os.path.join(self.gamedir, "saves")):
+                return os.path.join(self.gamedir, "saves", "navigation.json")
+
             self.make_tmp()
             return os.path.join(self.tmp, "navigation.json")
 
@@ -127,6 +131,7 @@ init python in project:
             data.setdefault("packages", [ "pc", "mac" ])
             data.setdefault("add_from", True)
             data.setdefault("force_recompile", True)
+            data.setdefault("android_build", "Release")
 
             if "renamed_all" not in data:
                 dp = data["packages"]
@@ -583,6 +588,9 @@ init python in project:
             if p is not None:
 
                 if language is None:
+                    rv = p
+
+                elif rv is None:
                     rv = p
 
                 elif os.path.exists(os.path.join(p.path, "game", "tl", _preferences.language)):

@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -20,6 +20,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # This file contains the routines that manage image prediction.
+
+from __future__ import print_function
 
 import renpy.display
 
@@ -133,7 +135,7 @@ def prediction_coroutine(root_widget):
 
     predicting = False
 
-    while not (yield True):
+    while not (yield False):
         continue
 
     # Predict screens given with renpy.start_predict_screen.
@@ -143,7 +145,7 @@ def prediction_coroutine(root_widget):
         renpy.display.screen.predict_screen(name, *args, **kwargs)
 
         predicting = False
-        yield True
+        yield False
         predicting = True
 
     # Predict things (especially screens) that are reachable through
@@ -162,7 +164,7 @@ def prediction_coroutine(root_widget):
     # Predict the screens themselves.
     for t in screens:
 
-        while not (yield True):
+        while not (yield False):
             continue
 
         if t in predicted_screens:
@@ -171,6 +173,9 @@ def prediction_coroutine(root_widget):
         predicted_screens.append(t)
 
         name, args, kwargs = t
+
+        if name.startswith("_"):
+            continue
 
         predicting = True
 
@@ -183,4 +188,4 @@ def prediction_coroutine(root_widget):
 
         predicting = False
 
-    yield False
+    yield None

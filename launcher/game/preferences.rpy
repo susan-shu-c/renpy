@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -51,6 +51,7 @@ init python:
 
         return rv
 
+    show_legacy = os.path.exists(os.path.join(config.renpy_base, "templates", "english", "game", "script.rpy"))
 
 default persistent.legacy = False
 default persistent.force_new_tutorial = False
@@ -128,23 +129,6 @@ screen preferences:
 
                     add SPACER
 
-                    if ability.can_update:
-
-                        # Update URL selection.
-                        add SEPARATOR2
-
-                        frame:
-                            style "l_indent"
-                            yminimum 75
-                            has vbox
-
-                            text _("Update Channel:")
-
-                            add HALF_SPACER
-
-                            frame style "l_indent":
-                                textbutton persistent.update_channel action Jump("update_preference")
-
                 frame:
                     style "l_indent"
                     xmaximum ONETHIRD
@@ -184,12 +168,16 @@ screen preferences:
                         if renpy.windows:
                             textbutton _("Console output") style "l_checkbox" action ToggleField(persistent, "windows_console")
 
-                        textbutton _("Force new tutorial") style "l_checkbox" action [ ToggleField(persistent, "force_new_tutorial"), project.SelectTutorial(True) ]
+                        if project.manager.get("oldtutorial"):
 
-                        textbutton _("Legacy options") style "l_checkbox" action ToggleField(persistent, "legacy")
+                           textbutton _("Force new tutorial") style "l_checkbox" action [ ToggleField(persistent, "force_new_tutorial"), project.SelectTutorial(True) ]
 
-                        if persistent.legacy:
-                            textbutton _("Show templates") style "l_checkbox" action ToggleField(persistent, "show_templates")
+                        if show_legacy:
+
+                            textbutton _("Legacy options") style "l_checkbox" action ToggleField(persistent, "legacy")
+
+                            if persistent.legacy:
+                                textbutton _("Show templates") style "l_checkbox" action ToggleField(persistent, "show_templates")
 
                         textbutton _("Sponsor message") style "l_checkbox" action ToggleField(persistent, "sponsor_message")
 

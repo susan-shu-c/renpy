@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -21,6 +21,8 @@
 
 # This file contains code to add and remove statements from the AST
 # and the textual representation of Ren'Py code.
+
+from __future__ import print_function
 
 import renpy
 import re
@@ -349,6 +351,11 @@ def add_to_ast_before(code, filename, linenumber):
         i.replace_next(old, block[0])
 
     renpy.ast.chain_block(block, old)
+
+    for i in renpy.game.contexts:
+        i.replace_node(old, block[0])
+
+    renpy.game.log.replace_node(old, block[0])
 
 
 def can_add_before(filename, linenumber):

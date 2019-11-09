@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -23,7 +23,10 @@
 # It's purpose is to store in one global all of the data that would
 # be to annoying to lug around otherwise.
 
+from __future__ import print_function, absolute_import
+
 import renpy.display
+import renpy.six as six
 
 # The basepath.
 basepath = None
@@ -124,18 +127,12 @@ class RestartContext(Exception):
     in the restarted context.
     """
 
-    def __init__(self, label):
-        self.label = label
-
 
 class RestartTopContext(Exception):
     """
     Restarts the top context. If `label` is given, calls that label
     in the restarted context.
     """
-
-    def __init__(self, label):
-        self.label = label
 
 
 class FullRestartException(Exception):
@@ -310,7 +307,6 @@ def call_in_new_context(label, *args, **kwargs):
     new context, and saving/loading will occur in the top level
     context.
 
-    This is used to begin a second interaction with the player
     Use this to begin a second interaction with the user while
     inside an interaction.
     """
@@ -377,10 +373,10 @@ def call_replay(label, scope={}):
     # This has to be here, to ensure the scope stuff works.
     renpy.exports.execute_default_statement()
 
-    for k, v in renpy.config.replay_scope.iteritems():
+    for k, v in six.iteritems(renpy.config.replay_scope):
         setattr(renpy.store, k, v)
 
-    for k, v in scope.iteritems():
+    for k, v in six.iteritems(scope):
         setattr(renpy.store, k, v)
 
     renpy.store._in_replay = label

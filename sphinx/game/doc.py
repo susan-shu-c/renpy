@@ -11,47 +11,25 @@ import os
 
 import __builtin__
 
-# Keywords in the Ren'Py script language.
-KEYWORD1 = """\
+# Additional keywords in the Ren'Py script language.
+SCRIPT_KEYWORDS = """\
 $
 as
 at
 behind
-call
 expression
-hide
-if
-in
-image
-init
-jump
-menu
 onlayer
-python
-return
-scene
-set
-show
-with
-while
 zorder
-transform
-play
-queue
-stop
-pause
-define
-screen
-label
-voice
-translate
+strings
+take
+nointeract
+elif
+old
+new
 """
 
-# Words that are sometimes statement keywords, like for ATL
-# or Screen language statements.
-KEYWORD2 = """\
-nvl
-window
+# ATL Keywords.
+ATL_KEYWORDS = """\
 repeat
 block
 contains
@@ -66,49 +44,150 @@ clockwise
 counterclockwise
 circles
 knot
-null
-text
-hbox
-vbox
-fixed
-grid
-side
-frame
-key
-timer
-input
-button
-imagebutton
-textbutton
-bar
-vbar
-viewport
-imagemap
-hotspot
-hotbar
-transform
-add
-use
+"""
+
+# SL2 Keywords (that aren't statements).
+SL2_KEYWORDS = """\
+tag
 has
-style
+index
+"""
+
+# LayerImage keywords
+LI_KEYWORDS = """\
+layeredimage
+attribute
+group
+always
 """
 
 
-def write_keywords():
-    f = file("source/keywords.py", "w")
+def script_keywords():
 
-    kwlist = list(keyword.kwlist)
-    kwlist.extend(KEYWORD1.split())
-    kwlist.extend(KEYWORD2.split())
+    tries = [ renpy.parser.statements ]
+
+    rv = set()
+
+    while tries:
+        trie = tries.pop(0)
+        for k, v in trie.words.items():
+            rv.add(k)
+            tries.append(v)
+
+    rv.remove("layer")
+
+    return rv
+
+
+script_keywords()
+
+
+def sl2_keywords():
+
+    rv = set()
+
+    for i in renpy.sl2.slparser.all_statements:
+        rv.add(i.name)
+
+    rv.remove("icon")
+    rv.remove("iconbutton")
+
+    return rv
+
+
+def sl2_regexps():
+
+    rv = [ ]
+
+    groups = collections.defaultdict(set)
+    has_style = { }
+
+    for k, v in renpy.sl2.slparser.properties.items():
+        prefix, style = k
+
+        has_style[prefix] = style
+
+        if prefix == "icon_":
+            continue
+
+        props = tuple(sorted(v))
+
+        groups[props, style].add(prefix)
+
+    style_part2 = "(?:" + "|".join(sorted(renpy.sl2.slparser.STYLE_PREFIXES)) + ")"
+
+    items = list(groups.items())
+    items.sort(key=lambda a : ( tuple(sorted(a[1])), a[0][1] ) )
+
+    for k, prefixes in items:
+        names, style = k
+
+        if len(prefixes) > 1:
+            part1 = "(?:" + "|".join(prefixes) + ")"
+        else:
+            part1 = tuple(prefixes)[0]
+
+        if style:
+            part2 = style_part2
+        else:
+            part2 = ""
+
+        part3 = "(?:" + "|".join(sorted(names)) + ")"
+
+        re = part1 + part2 + part3
+        rv.append(re)
+
+    return rv
+
+
+def expanded_sl2_properties():
+
+    rv = set()
+
+    for k, v in renpy.sl2.slparser.properties.items():
+        prefix, style = k
+
+        if prefix == "icon_":
+            continue
+
+        if style:
+            style_prefixes = renpy.sl2.slparser.STYLE_PREFIXES
+        else:
+            style_prefixes = [ '' ]
+
+        for i in style_prefixes:
+            for j in v:
+                rv.add(prefix + i + j)
+
+    rv = list(rv)
+    rv.sort()
+
+    return rv
+
+
+def write_keywords():
+    f = open("source/keywords.py", "w")
+
+    kwlist = set(keyword.kwlist)
+    kwlist |= script_keywords()
+    kwlist |= sl2_keywords()
+    kwlist |= set(ATL_KEYWORDS.split())
+    kwlist |= set(SCRIPT_KEYWORDS.split())
+    kwlist |= set(SL2_KEYWORDS.split())
+    kwlist |= set(LI_KEYWORDS.split())
+
+    kwlist = list(kwlist)
 
     kwlist.sort()
 
     f.write("keywords = %r\n" % kwlist)
+    f.write("keyword_regex = %r\n" % ("|".join(re.escape(i) for i in kwlist)))
 
-    properties = list(i for i in renpy.sl2.slparser.all_keyword_names if i not in kwlist)
-    properties.sort()
+    properties = [ i for i in expanded_sl2_properties() if i not in kwlist ]
 
     f.write("properties = %r\n" % properties)
+
+    f.write("property_regexes = %r\n" % sl2_regexps())
 
     f.close()
 
@@ -118,6 +197,13 @@ def write_keywords():
 # A map from filename to a list of lines that are supposed to go into
 # that file.
 line_buffer = collections.defaultdict(list)
+
+
+# A map from id(o) to the names it's documented under.
+documented = collections.defaultdict(list)
+
+# This keeps all objectsd we see alive, to prevent duplicates in documented.
+documented_list = [ ]
 
 
 def scan(name, o, prefix=""):
@@ -217,6 +303,9 @@ def scan(name, o, prefix=""):
     if inspect.isclass(o):
         for i in dir(o):
             scan(i, getattr(o, i), prefix + "    ")
+
+    documented_list.append(o)
+    documented[id(o)].append(name)
 
 
 def scan_section(name, o):
@@ -368,3 +457,17 @@ def write_tq():
 
     with open("source/thequestion.rst", "w") as f:
         f.write(template.format(script=script, options=options))
+
+
+def check_dups():
+
+    duplicates = False
+
+    for v in documented.values():
+        if len(v) >= 2:
+            duplicates = True
+
+            print(" and ".join(v), "are duplicate.")
+
+    if duplicates:
+        raise SystemExit(1)

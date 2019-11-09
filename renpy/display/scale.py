@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -21,6 +21,8 @@
 
 # This used to hack pygame to support resolution-scaling. Now it just kinda
 # sits here, to provide compatibility with what it used to be.
+
+from __future__ import print_function
 
 import pygame_sdl2 as pygame
 import renpy.display

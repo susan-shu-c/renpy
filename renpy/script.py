@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -107,7 +107,7 @@ class Script(object):
         renpy.game.script = self
 
         if os.path.exists(renpy.config.renpy_base + "/lock.txt"):
-            self.key = file(renpy.config.renpy_base + "/lock.txt", "rb").read()
+            self.key = open(renpy.config.renpy_base + "/lock.txt", "rb").read()
         else:
             self.key = None
 
@@ -263,6 +263,15 @@ class Script(object):
         initcode = [ ]
 
         for fn, dir in script_files:  # @ReservedAssignment
+            # Mitigate "busy script" warning from the browser
+            if renpy.emscripten:
+                import emscripten
+                emscripten.sleep(0)
+
+            # Pump the presplash window to prevent marking
+            # our process as unresponsive by OS
+            renpy.display.presplash.pump_window()
+
             self.load_appropriate_file(".rpyc", ".rpy", dir, fn, initcode)
 
         # Make the sort stable.
@@ -272,6 +281,8 @@ class Script(object):
         initcode.sort()
 
         self.initcode = [ (prio, code) for prio, index, code in initcode ]
+
+        self.translator.chain_translates()
 
     def load_module(self, name):
 
@@ -400,41 +411,49 @@ class Script(object):
                 for i in all_stmts:
                     i.filename = filename
 
-        # Check for duplicate names.
-        if check_names and not renpy.mobile:
+        def check_name(node):
+
+            if not check_names:
+                return
+
+            if renpy.mobile:
+                return
+
             bad_name = None
             bad_node = None
             old_node = None
 
-            for node in all_stmts:
-                name = node.name
+            name = node.name
 
-                if name in self.namemap:
+            if name in self.namemap:
 
-                    bad_name = name
-                    bad_node = node
-                    old_node = self.namemap[name]
+                bad_name = name
+                bad_node = node
+                old_node = self.namemap[name]
 
-                    if not isinstance(bad_name, basestring):
+                if not isinstance(bad_name, basestring):
 
-                        raise ScriptError("Name %s is defined twice, at %s:%d and %s:%d." %
-                                          (repr(bad_name),
-                                           old_node.filename, old_node.linenumber,
-                                           bad_node.filename, bad_node.linenumber))
+                    raise ScriptError("Name %s is defined twice, at %s:%d and %s:%d." %
+                                      (repr(bad_name),
+                                       old_node.filename, old_node.linenumber,
+                                       bad_node.filename, bad_node.linenumber))
 
-                    else:
-                        self.duplicate_labels.append(
-                            u'The label {} is defined twice, at\n  File "{}", line {} and\n  File "{}", line {}.'.format(
-                                bad_name, old_node.filename, old_node.linenumber, bad_node.filename, bad_node.linenumber))
+                else:
 
-                # Add twice, so we can find duplicates in the same file.
-                self.namemap[name] = node
+                    if renpy.config.allow_duplicate_labels:
+                        return
+
+                    self.duplicate_labels.append(
+                        u'The label {} is defined twice, at\n  File "{}", line {} and\n  File "{}", line {}.'.format(
+                            bad_name, old_node.filename, old_node.linenumber, bad_node.filename, bad_node.linenumber))
 
         self.update_bytecode()
 
         for node in all_stmts:
 
             name = node.name
+
+            check_name(node)
 
             # Add the name to the namemap.
             self.namemap[name] = node
@@ -474,7 +493,7 @@ class Script(object):
         f.seek(0, 2)
 
         start = f.tell()
-        data = zlib.compress(data, 9)
+        data = zlib.compress(data, 3)
         f.write(data)
 
         f.seek(len(RPYC2_HEADER) + 12 * (slot - 1), 0)
@@ -509,7 +528,7 @@ class Script(object):
             f.seek(0)
             data = f.read()
 
-            return data.decode("zlib")
+            return zlib.decompress(data)
 
         # RPYC2 path.
         pos = len(RPYC2_HEADER)
@@ -578,12 +597,12 @@ class Script(object):
             finally:
                 self.record_pycode = True
 
-            self.assign_names(stmts, fullfn)
+            self.assign_names(stmts, renpy.parser.elide_filename(fullfn))
 
             if not renpy.macapp:
 
                 try:
-                    f = file(rpycfn, "wb")
+                    f = open(rpycfn, "wb")
 
                     self.write_rpyc_header(f)
                     self.write_rpyc_data(f, 1, dumps((data, stmts), 2))
@@ -700,6 +719,8 @@ class Script(object):
             except:
                 rpycdigest = None
 
+            digest = None
+
             if os.path.exists(rpyfn) and os.path.exists(rpycfn):
 
                 # Are we forcing a compile?
@@ -743,7 +764,8 @@ class Script(object):
 
                 digest = rpydigest
 
-            self.backup_list.append((rpyfn, digest))
+            if digest is not None:
+                self.backup_list.append((rpyfn, digest))
 
         if data is None:
             raise Exception("Could not load file %s." % lastfn)
@@ -765,7 +787,7 @@ class Script(object):
 
         # Load the oldcache.
         try:
-            version, cache = loads(renpy.loader.load(BYTECODE_FILE).read().decode("zlib"))
+            version, cache = loads(zlib.decompress(renpy.loader.load(BYTECODE_FILE).read()))
             if version == BYTECODE_VERSION:
                 self.bytecode_oldcache = cache
 
@@ -805,6 +827,8 @@ class Script(object):
 
                     if i.mode == 'exec':
                         code = renpy.python.py_compile_exec_bytecode(i.source, filename=i.location[0], lineno=i.location[1])
+                    elif i.mode == 'hide':
+                        code = renpy.python.py_compile_hide_bytecode(i.source, filename=i.location[0], lineno=i.location[1])
                     elif i.mode == 'eval':
                         code = renpy.python.py_compile_eval_bytecode(i.source, filename=i.location[0], lineno=i.location[1])
 
@@ -848,7 +872,7 @@ class Script(object):
 
                 with open(fn, "wb") as f:
                     data = (BYTECODE_VERSION, self.bytecode_newcache)
-                    f.write(dumps(data, 2).encode("zlib"))
+                    f.write(zlib.compress(dumps(data, 2), 3))
             except:
                 pass
 
@@ -857,6 +881,9 @@ class Script(object):
         Looks up the given label in the game. If the label is not found,
         raises a ScriptError.
         """
+
+        if isinstance(label, renpy.parser.SubParse):
+            label = label.block[0].name
 
         label = renpy.config.label_overrides.get(label, label)
         original = label
@@ -877,9 +904,29 @@ class Script(object):
         Returns true if the label exists, or false otherwise.
         """
 
+        if isinstance(label, renpy.parser.SubParse):
+
+            if not label.block:
+                return False
+
+            label = label.block[0].name
+
         label = renpy.config.label_overrides.get(label, label)
 
         return label in self.namemap
+
+    def lookup_or_none(self, label):
+        """
+        Looks up the label if it exists, or returns None if it does not.
+        """
+
+        if label is None:
+            return None
+
+        if not self.has_label(label):
+            return None
+
+        return self.lookup(label)
 
     def analyze(self):
         """

@@ -61,8 +61,8 @@ and rolled-back when rollback occurs.
 
 .. var:: menu = renpy.display_menu
 
-    The function that's called to display the in-gamemenu. It should take the same
-    arguments as :func`renpy.display_menu`. Assigning :func:`nvl_menu` to this
+    The function that's called to display the in-game menu. It should take the same
+    arguments as :func:`renpy.display_menu`. Assigning :func:`nvl_menu` to this
     will display an nvl-mode menu.
 
 .. var:: mouse_visible = True
@@ -82,7 +82,7 @@ and rolled-back when rollback occurs.
         $ temp_char = Character("Eileen", kind=name_only)
         temp_char "Hello, world."
 
-    except that the temp_char variable is not used.
+    except that the ``temp_char`` variable is not used.
 
 .. var:: narrator = Character(...)
 
@@ -95,6 +95,11 @@ and rolled-back when rollback occurs.
 
         narrator "Hello, world."
 
+.. var:: _quit_slot = None
+
+    If not None, this should be a string giving the name of a file slot.
+    When Ren'Py quits, the game will be saved in this slot.
+
 .. var:: _rollback = True
 
     Controls if rollback is allowed.
@@ -103,7 +108,7 @@ and rolled-back when rollback occurs.
 
     A function that is called by Ren'Py to display dialogue. This is called
     with three arguments. The first argument (`who`) is the character saying the
-    dialogue (or None for the narrator). The second argument(`what`) is what dialogue
+    dialogue (or None for the narrator). The second argument (`what`) is what dialogue
     is being said.
 
     The third argument must be a keyword argument named `interact` and defaulting
@@ -120,7 +125,16 @@ and rolled-back when rollback occurs.
 
 .. var:: _skipping = True
 
-    Controls of if skipping is allowed.
+    Controls if skipping is allowed.
+
+.. var:: _version = ...
+
+    This is set to :var:`config.version` when a new game is started. It can be
+    used by the ``after_load`` label or :var:`config.after_load_callbacks` to
+    determine which upgrades need to be done.
+
+    This is only set once, upon the initial start. After that, the game is
+    responsible for updating _version as necessary.
 
 .. var:: _window = False
 

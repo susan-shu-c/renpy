@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -183,7 +183,7 @@ init -1500 python:
          If not None, `transition` is use to show the new screen.
          """
 
-        return Show(screen, transition=transition, _transient=True, *args, **kwargs)
+        return Show(screen, transition, _transient=True, *args, **kwargs)
 
     @renpy.pure
     class Hide(Action, DictEquality):

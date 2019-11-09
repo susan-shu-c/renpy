@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -19,10 +19,15 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from __future__ import print_function
+
+import collections
 import renpy.sl2
 import renpy.sl2.slast as slast
 
-# A list of style prefixes that we know of.
+from ast import literal_eval
+
+# A tuple of style prefixes that we know of.
 STYLE_PREFIXES = [
     '',
     'insensitive_',
@@ -61,8 +66,8 @@ class Positional(object):
             parser.add(self)
 
 
-# Used to generate the documentation
-all_keyword_names = set()
+# This is a map from (prefix, use_style_prefixes) to a set of property names.
+properties = collections.defaultdict(set)
 
 
 class Keyword(object):
@@ -73,7 +78,7 @@ class Keyword(object):
     def __init__(self, name):
         self.name = name
 
-        all_keyword_names.add(self.name)
+        properties['', False].add(name)
 
         if parser:
             parser.add(self)
@@ -87,8 +92,7 @@ class Style(object):
     def __init__(self, name):
         self.name = name
 
-        for j in STYLE_PREFIXES:
-            all_keyword_names.add(j + self.name)
+        properties['', True].add(self.name)
 
         if parser:
             parser.add(self)
@@ -103,8 +107,7 @@ class PrefixStyle(object):
         self.prefix = prefix
         self.name = name
 
-        for j in STYLE_PREFIXES:
-            all_keyword_names.add(prefix + j + self.name)
+        properties[prefix, True].add(self.name)
 
         if parser:
             parser.add(self)
@@ -117,7 +120,7 @@ class Parser(object):
     # inside something that takes a single child.
     nchildren = "many"
 
-    def __init__(self, name):
+    def __init__(self, name, statement=True):
 
         # The name of this object.
         self.name = name
@@ -128,7 +131,11 @@ class Parser(object):
         self.keyword = { }
         self.children = { }
 
-        all_statements.append(self)
+        # True if this parser takes "as".
+        self.variable = False
+
+        if statement:
+            all_statements.append(self)
 
         global parser
         parser = self
@@ -164,23 +171,23 @@ class Parser(object):
         elif isinstance(i, Parser):
             self.children[i.name] = i
 
-    def parse_statement(self, loc, l, layout_mode=False):
+    def parse_statement(self, loc, l, layout_mode=False, keyword=True):
         word = l.word() or l.match(r'\$')
 
         if word and word in self.children:
             if layout_mode:
-                c = self.children[word].parse_layout(loc, l, self)
+                c = self.children[word].parse_layout(loc, l, self, keyword)
             else:
-                c = self.children[word].parse(loc, l, self)
+                c = self.children[word].parse(loc, l, self, keyword)
 
             return c
         else:
             return None
 
-    def parse_layout(self, loc, l, parent):
+    def parse_layout(self, loc, l, parent, keyword):
         l.error("The %s statement cannot be used as a container for the has statement." % self.name)
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
         """
         This is expected to parse a function statement, and to return
         a list of python ast statements.
@@ -197,7 +204,7 @@ class Parser(object):
 
         raise Exception("Not Implemented")
 
-    def parse_contents(self, l, target, layout_mode=False, can_has=False, can_tag=False, block_only=False):
+    def parse_contents(self, l, target, layout_mode=False, can_has=False, can_tag=False, block_only=False, keyword=True):
         """
         Parses the remainder of the current line of `l`, and all of its subblock,
         looking for keywords and children.
@@ -218,9 +225,10 @@ class Parser(object):
         """
 
         seen_keywords = set()
+        block = False
 
         # Parses a keyword argument from the lexer.
-        def parse_keyword(l, expect):
+        def parse_keyword(l, expect, first_line):
             name = l.word()
 
             if name is None:
@@ -231,8 +239,16 @@ class Parser(object):
                     l.error('keyword argument %r appears more than once in a %s statement.' % (name, self.name))
 
                 target.tag = l.require(l.word)
-
+                l.expect_noblock(name)
                 return True
+
+            if self.variable:
+                if name == "as":
+                    if target.variable is not None:
+                        l.error('an as clause may only appear once in a %s statement.' % (self.name,))
+
+                    target.variable = l.require(l.word)
+                    return
 
             if name not in self.keyword:
                 l.error('%r is not a keyword argument or valid child for the %s statement.' % (name, self.name))
@@ -242,9 +258,26 @@ class Parser(object):
 
             seen_keywords.add(name)
 
+            if name == "at" and block and l.keyword("transform"):
+                l.require(":")
+                l.expect_eol()
+                l.expect_block("ATL block")
+                expr = renpy.atl.parse_atl(l.subblock_lexer())
+                target.atl_transform = expr
+                return
+
             expr = l.comma_expression()
 
+            if (not keyword) and (not renpy.config.keyword_after_python):
+                try:
+                    literal_eval(expr)
+                except:
+                    l.error("a non-constant keyword argument like '%s %s' is not allowed after a python block." % (name, expr))
+
             target.keyword.append((name, expr))
+
+            if not first_line:
+                l.expect_noblock(name)
 
         if block_only:
             l.expect_eol()
@@ -267,10 +300,7 @@ class Parser(object):
                     block = False
                     break
 
-                parse_keyword(l, 'expected a keyword argument, colon, or end of line.')
-
-        # The index of the child we're adding to this statement.
-        child_index = 0
+                parse_keyword(l, 'expected a keyword argument, colon, or end of line.', True)
 
         # A list of lexers we need to parse the contents of.
         lexers = [ ]
@@ -295,15 +325,18 @@ class Parser(object):
                     if not can_has:
                         l.error("The has statement is not allowed here.")
 
-                    if child_index != 0:
+                    if target.has_noncondition_child():
                         l.error("The has statement may not be given after a child has been supplied.")
 
-                    c = self.parse_statement(loc, l, layout_mode=True)
+                    c = self.parse_statement(loc, l, layout_mode=True, keyword=keyword)
 
                     if c is None:
                         l.error('Has expects a child statement.')
 
                     target.children.append(c)
+
+                    if c.has_python():
+                        keyword = False
 
                     continue
 
@@ -316,16 +349,19 @@ class Parser(object):
                 # If not none, add the child to our AST.
                 if c is not None:
                     target.children.append(c)
-                    child_index += 1
+
+                    if c.has_python():
+                        keyword = False
+
                     continue
 
                 l.revert(state)
 
                 if not l.eol():
-                    parse_keyword(l, "expected a keyword argument or child statement.")
+                    parse_keyword(l, "expected a keyword argument or child statement.", False)
 
                 while not l.eol():
-                    parse_keyword(l, "expected a keyword argument or end of line.")
+                    parse_keyword(l, "expected a keyword argument or end of line.", False)
 
     def add_positional(self, name):
         global parser
@@ -382,7 +418,7 @@ many = renpy.object.Sentinel("many")
 def register_sl_displayable(*args, **kwargs):
     """
     :doc: custom_sl class
-    :args: (name, displayable, style, nchildren=0, scope=False, replaces=False, default_keywords={})
+    :args: (name, displayable, style, nchildren=0, scope=False, replaces=False, default_keywords={}, default_properties=True)
 
     Registers a screen language statement that creates a displayable.
 
@@ -428,6 +464,9 @@ def register_sl_displayable(*args, **kwargs):
     `default_keywords`
         The default set of keyword arguments to supply to the displayable.
 
+    `default_properties`
+        If true, the ui and position properties are added by default.
+
     Returns an object that can have positional arguments and properties
     added to it by calling the following methods. Each of these methods
     returns the object it is called on, allowing methods to be chained
@@ -437,25 +476,25 @@ def register_sl_displayable(*args, **kwargs):
 
         Adds a positional argument with `name`
 
-    .. method:: add_property(name):
+    .. method:: add_property(name)
 
         Adds a property with `name`. Properties are passed as keyword
         arguments.
 
-    .. method:: add_style_property(name):
+    .. method:: add_style_property(name)
 
         Adds a family of properties, ending with `name` and prefixed with
         the various style property prefixes. For example, if called with
         ("size"), this will define size, idle_size, hover_size, etc.
 
-    .. method:: add_prefix_style_property(prefix, name):
+    .. method:: add_prefix_style_property(prefix, name)
 
         Adds a family of properties with names consisting of `prefix`,
         a style property prefix, and `name`. For example, if called
         with a prefix of `text_` and a name of `size`, this will
         create text_size, text_idle_size, text_hover_size, etc.
 
-    .. method:: add_property_group(group, prefix=''):
+    .. method:: add_property_group(group, prefix='')
 
         Adds a group of properties, prefixed with `prefix`. `Group` may
         be one of the strings:
@@ -483,6 +522,9 @@ def register_sl_displayable(*args, **kwargs):
 
         for i in all_statements:
             rv.add(i)
+
+    rv.add(if_statement)
+    rv.add(pass_statement)
 
     return rv
 
@@ -534,6 +576,7 @@ class DisplayableParser(Parser):
         self.hotspot = hotspot
         self.replaces = replaces
         self.default_keywords = default_keywords
+        self.variable = True
 
         Keyword("arguments")
         Keyword("properties")
@@ -542,10 +585,10 @@ class DisplayableParser(Parser):
             add(renpy.sl2.slproperties.ui_properties)
             add(renpy.sl2.slproperties.position_properties)
 
-    def parse_layout(self, loc, l, parent):
-        return self.parse(loc, l, parent, True)
+    def parse_layout(self, loc, l, parent, keyword):
+        return self.parse(loc, l, parent, keyword, layout_mode=True)
 
-    def parse(self, loc, l, parent, layout_mode=False):
+    def parse(self, loc, l, parent, keyword, layout_mode=False):
 
         rv = slast.SLDisplayable(
             loc,
@@ -601,7 +644,7 @@ class IfParser(Parser):
         if not parent_contents:
             childbearing_statements.add(self)
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
         if self.parent_contents:
             contents_from = parent
@@ -631,7 +674,7 @@ class IfParser(Parser):
                 l.require(':')
 
                 block = slast.SLBlock(loc)
-                contents_from.parse_contents(l, block, block_only=True)
+                contents_from.parse_contents(l, block, block_only=True, keyword=keyword)
 
                 rv.entries.append((condition, block))
 
@@ -643,7 +686,7 @@ class IfParser(Parser):
                 l.require(':')
 
                 block = slast.SLBlock(loc)
-                contents_from.parse_contents(l, block, block_only=True)
+                contents_from.parse_contents(l, block, block_only=True, keyword=keyword)
 
                 rv.entries.append((condition, block))
 
@@ -702,7 +745,7 @@ class ForParser(Parser):
 
         l.error("expected variable or tuple pattern.")
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
         l.skip_whitespace()
 
@@ -717,6 +760,11 @@ class ForParser(Parser):
         else:
             code = None
 
+        if l.match('index'):
+            index_expression = l.require(l.say_expression)
+        else:
+            index_expression = None
+
         l.require('in')
 
         expression = l.require(l.python_expression)
@@ -724,7 +772,7 @@ class ForParser(Parser):
         l.require(':')
         l.expect_eol()
 
-        rv = slast.SLFor(loc, name, expression)
+        rv = slast.SLFor(loc, name, expression, index_expression)
 
         if code:
             rv.children.append(slast.SLPython(loc, code))
@@ -739,7 +787,7 @@ ForParser("for")
 
 class OneLinePythonParser(Parser):
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
         loc = l.get_location()
         source = l.require(l.rest_statement)
@@ -756,7 +804,7 @@ OneLinePythonParser("$")
 
 class MultiLinePythonParser(Parser):
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
         loc = l.get_location()
 
@@ -776,19 +824,20 @@ MultiLinePythonParser("python")
 
 class PassParser(Parser):
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
         l.expect_eol()
+        l.expect_noblock('pass statement')
 
         return slast.SLPass(loc)
 
 
-PassParser("pass")
+pass_statement = PassParser("pass")
 
 
 class DefaultParser(Parser):
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
         name = l.require(l.word)
         l.require(r'=')
@@ -809,9 +858,14 @@ class UseParser(Parser):
         super(UseParser, self).__init__(name)
         childbearing_statements.add(self)
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
-        target = l.require(l.word)
+        if l.keyword('expression'):
+            target = l.require(l.simple_expression)
+            l.keyword('pass')
+        else:
+            target = l.require(l.word)
+
         args = renpy.parser.parse_arguments(l)
 
         if l.keyword('id'):
@@ -842,7 +896,7 @@ Keyword("style_group")
 
 class TranscludeParser(Parser):
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
         l.expect_eol()
         return slast.SLTransclude(loc)
 
@@ -895,6 +949,9 @@ class CustomParser(Parser):
             for i in all_statements:
                 self.add(i)
 
+        self.add(if_statement)
+        self.add(pass_statement)
+
         global parser
         parser = None
 
@@ -907,7 +964,7 @@ class CustomParser(Parser):
         # The number of positional parameters required.
         self.positional = positional
 
-    def parse(self, loc, l, parent):
+    def parse(self, loc, l, parent, keyword):
 
         arguments = [ ]
 
@@ -938,9 +995,9 @@ class CustomParser(Parser):
 class ScreenParser(Parser):
 
     def __init__(self):
-        super(ScreenParser, self).__init__("screen")
+        super(ScreenParser, self).__init__("screen", statement=False)
 
-    def parse(self, loc, l, parent, name="_name"):
+    def parse(self, loc, l, parent, name="_name", keyword=True):
 
         screen = slast.SLScreen(loc)
 
@@ -956,6 +1013,7 @@ class ScreenParser(Parser):
         screen.variant = keyword.get("variant", "None")
         screen.predict = keyword.get("predict", "None")
         screen.layer = keyword.get("layer", "'screens'")
+        screen.sensitive = keyword.get("sensitive", "True")
 
         return screen
 
@@ -968,6 +1026,7 @@ Keyword("predict")
 Keyword("style_group")
 Keyword("style_prefix")
 Keyword("layer")
+Keyword("sensitive")
 parser = None
 
 
@@ -980,6 +1039,7 @@ def init():
             i.add(all_statements)
         else:
             i.add(if_statement)
+            i.add(pass_statement)
 
 
 def parse_screen(l, loc):

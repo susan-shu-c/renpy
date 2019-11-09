@@ -1,4 +1,4 @@
-﻿# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+﻿# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -134,10 +134,6 @@ init -1500:
 
                     textbutton _("Enable"):
                         action Preference("gl powersave", True)
-                        style_suffix "radio_button"
-
-                    textbutton _("Auto"):
-                        action Preference("gl powersave", "auto")
                         style_suffix "radio_button"
 
                     textbutton _("Disable"):
@@ -377,7 +373,7 @@ init -1500 python:
         if not _preferences.performance_test and not performance_test:
             return
 
-        # Don't bother on android or ios - there's nothing the user can do.
+        # Don't bother on android or ios or emscripten - there's nothing the user can do.
         if renpy.mobile:
             return
 
@@ -392,8 +388,11 @@ init -1500 python:
 
         renderer_info = renpy.get_renderer_info()
 
+        if config.gl2 and not renderer_info.get("models", False):
+            problem = "fixed"
+
         # Software renderer check.
-        if config.renderer != "sw" and renderer_info["renderer"] == "sw":
+        elif config.renderer != "sw" and renderer_info["renderer"] == "sw":
             problem = "sw"
 
         # Speed check.
@@ -439,13 +438,14 @@ init -1500 python:
 label _gl_test:
 
     # Show the test image.
-    scene
+    scene black
     show expression config.gl_test_image
+    with None
 
     $ __gl_test()
 
     # Hide the test image.
-    scene
+    scene black
 
     return
 

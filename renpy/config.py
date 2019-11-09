@@ -1,4 +1,4 @@
-# Copyright 2004-2018 Tom Rothamel <pytom@bishoujo.us>
+# Copyright 2004-2019 Tom Rothamel <pytom@bishoujo.us>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -23,8 +23,11 @@
 # This includes both simple settings (like the screen dimensions) and
 # methods that perform standard tasks, like the say and menu methods.
 
+from __future__ import print_function, absolute_import
+
 import collections
 import os
+import renpy
 
 # Can we add more config variables?
 locked = False
@@ -90,7 +93,10 @@ savedir = None
 
 # The number of screens worth of images that are allowed to
 # live in the image cache at once.
-image_cache_size = 16
+image_cache_size = None
+
+# The size of the image cache, in megabytes.
+image_cache_size_mb = 300
 
 # The number of statements we will analyze when doing predictive
 # loading. Please note that this is a total number of statements in a
@@ -359,8 +365,8 @@ rtl = False
 file_open_callback = None
 
 # The size of screenshot thumbnails. (Redefined in common/)
-thumbnail_width = None
-thumbnail_height = None
+thumbnail_width = 256
+thumbnail_height = 144
 
 # The end game transition.
 end_game_transition = None
@@ -508,6 +514,9 @@ statement_callbacks = [ ]
 # A list of file extensions that are blacklisted by autoreload.
 autoreload_blacklist = [ ".rpyc", ".rpymc", ".rpyb", ".pyc", ".pyo" ]
 
+# A list of python modules that should be reloaded when appropriate.
+reload_modules = [ ]
+
 # The layer dialogue is shown on.
 say_layer = "screens"
 
@@ -570,6 +579,9 @@ log_to_stdout = False
 
 # new-style custom text tags.
 custom_text_tags = { }
+
+# Same, but for ones that are empty.
+self_closing_custom_text_tags = { }
 
 # A function that given the text from a TEXT token, returns a replacement text.
 replace_text = None
@@ -714,6 +726,12 @@ translate_files = [ ]
 # translated.
 translate_comments = [ ]
 
+# Should we trying detect user locale on first launch?
+enable_language_autodetect = False
+
+# A function from (locale, region) -> existing language.
+locale_to_language_function = None
+
 # Should we pass the full argument list to the say screen?
 old_say_args = False
 
@@ -784,9 +802,6 @@ position_viewport_side = True
 # Things that be given properties via Character.
 character_id_prefixes = [ ]
 
-# Should surfaces be cached?
-cache_surfaces = True
-
 # Should {nw} wait for voice.
 nw_voice = True
 
@@ -804,6 +819,8 @@ fast_skipping_callbacks = [ ]
 
 # Should the audio periodic callback run in its own thread.
 audio_periodic_thread = True
+if renpy.emscripten:
+    audio_periodic_thread = False
 
 # A list of fonts to preload on Ren'Py startup.
 preload_fonts = [ ]
@@ -831,7 +848,7 @@ performance_window = 5.0
 profile_time = 1.0 / 50.0
 
 # What event do we check to see if the profile needs to be printed?
-profile_to_event = "end frame"
+profile_to_event = "flip"
 
 # Should we instantly zap transient displayables, or properly hide them?
 fast_unhandled_event = True
@@ -864,6 +881,136 @@ take_state_from_target = False
 # Does ui.viewport set the child_size if not set?
 scrollbar_child_size = True
 
+# Should surfaces be cached?
+cache_surfaces = False
+
+# Should we optimize textures by taking the bounding rect?
+optimize_texture_bounds = True
+
+# Should we predict everything in a ConditionSwitch?
+conditionswitch_predict_all = False
+
+# Transform events to deliver each time one happens.
+repeat_transform_events = [ "show", "replace", "update" ]
+
+# How many statements should we warp through?
+warp_limit = 1000
+
+# Should dissolve statments force the use of alpha.
+dissolve_force_alpha = True
+
+# A map from a displayable prefix to a function that returns a displayable
+# corresponding to the argument.
+displayable_prefix = { }
+
+# Should we re-play a movie when it's shown again.
+replay_movie_sprites = True
+
+# A callback that is called when entering a new context.
+context_callback = None
+
+# Should we reject . and .. in filenames?
+reject_relative = True
+
+# The prefix to use on the side image.
+side_image_prefix_tag = 'side'
+
+# Do the say attributes of a hidden side image use the side image tag?
+say_attributes_use_side_image = True
+
+# Does the menu statement show a window by itself, when there is no caption?
+menu_showed_window = False
+
+# Should the menu statement produce actions instead of values?
+menu_actions = True
+
+# Should disabled menu items be included?
+menu_include_disabled = False
+
+# Should we report extraneous attributes?
+report_extraneous_attributes = True
+
+# Should we play non-loooped music when skipping?
+skip_sounds = False
+
+# Should we lint screens without parameters?
+lint_screens_without_parameters = True
+
+# If not None, a function that's used to process and modify menu arguments.
+menu_arguments_callback = None
+
+# Should Ren'PY automatically clear the screenshot?
+auto_clear_screenshot = True
+
+# Should Ren'Py allow duplicate labels.
+allow_duplicate_labels = False
+
+# A map of font transform name to font transform function.
+font_transforms = { }
+
+# A scaling factor that is applied to a truetype font.
+ftfont_scale = { }
+
+# This is used to scale the ascent and descent of a font.
+ftfont_vertical_extent_scale = { }
+
+# The default shader.
+default_shader = "renpy.geometry"
+
+
+def say_attribute_transition_callback(*args):
+    """
+    :args: (tag, attrs, mode)
+
+    Returns the say attribute transition to use, and the layer the transition
+    should be applied to (with None being a valid layer.
+
+    Attrs is the list of tags/attributes of the incoming image.
+
+    Mode is one of "permanent", "temporary", or "restore".
+    """
+
+    return renpy.config.say_attribute_transition, renpy.config.say_attribute_transition_layer
+
+
+# Should say_attribute_transition_callback take attrs?
+say_attribute_transition_callback_attrs = True
+
+# The function used by renpy.notify
+notify = None
+
+# Should Ren'Py support a SL2 keyword after a Python statement?
+keyword_after_python = False
+
+# A label Ren'Py should jump to if a load fails.
+load_failed_label = None
+
+# If true, Ren'Py distributes mono to both stereo channels. If false,
+# it splits it 50/50.
+equal_mono = True
+
+# If True, renpy.input will always return the default.
+disable_input = False
+
+# If True, the order of substrings in the Side positions will
+# also determine the order of their render.
+keep_side_render_order = True
+
+# Should this game enable and require gl2?
+gl2 = False
+
+# Does this game use the depth buffer? If so, how many bits of depth should
+# it use?
+depth_size = None
+
+# A list of screens to remove when the context is copied.
+context_copy_remove_screens = [ "notify" ]
+
+# An exception handling callback.
+exception_handler = None
+
+# A label that is jumped to if return fails.
+return_not_found_label = None
 
 del os
 del collections
@@ -883,3 +1030,6 @@ def init():
 
     global tts_function
     tts_function = renpy.display.tts.default_tts_function
+
+    global notify
+    notify = renpy.exports.display_notify
